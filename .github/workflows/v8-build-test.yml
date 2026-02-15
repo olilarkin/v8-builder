@@ -1,14 +1,6 @@
 name: V8 Build Test
 
 on:
-  push:
-    branches:
-      - master
-      - actions
-    paths-ignore:
-      - "depot_tools"
-      - ".gitignore"
-      - ".gitpod*"
   workflow_dispatch:
 
 jobs:
