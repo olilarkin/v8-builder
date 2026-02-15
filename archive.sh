@@ -54,6 +54,8 @@ cp -r "${dir}/v8/include" \
   "${dir}/gn-args_${os}.txt" \
   "$output_dir"
 
+"${dir}/v8_deconflict.sh" "$output_dir/libv8_monolith.a"
+
 tar -Jcf "${dir}/${archive}" -C "$output_dir" .
 
 ls -lh "${dir}/${archive}"

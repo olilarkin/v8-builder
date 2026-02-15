@@ -27,8 +27,9 @@ runs:
     - name: Setup Build Tools
       shell: bash
       run: |
-        brew install ccache
+        brew install ccache llvm
 
+        echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
         echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
         echo "CCACHE_CPP2=yes" >> "$GITHUB_ENV"
         echo "CCACHE_SLOPPINESS=time_macros" >> "$GITHUB_ENV"

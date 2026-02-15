@@ -25,7 +25,7 @@ runs:
     - name: Setup Build Tools
       shell: pwsh
       run: |
-        scoop install sccache
+        scoop install sccache llvm
 
         $sccacheDir = "$Env:GITHUB_WORKSPACE`\.sccache"
         New-Item -Path "$sccacheDir" -ItemType Directory -Force

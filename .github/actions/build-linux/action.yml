@@ -28,7 +28,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -yq ccache
+        sudo apt-get install -yq ccache llvm
         sudo update-ccache-symlinks
 
         echo "/usr/lib/ccache" >> "$GITHUB_PATH"

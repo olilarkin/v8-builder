@@ -44,6 +44,12 @@ xcopy /E /I /Q /Y "%dir%\v8\include" "%outputDir%"
 copy /Y "%dir%\v8\out\release\obj\v8_monolith.lib" "%outputDir%"
 copy /Y "%dir%\gn-args_%os%.txt" "%outputDir%"
 
+call "%dir%\v8_deconflict.bat" "%outputDir%\v8_monolith.lib"
+if errorlevel 1 (
+  echo Failed to deconflict.
+  exit /b %errorlevel%
+)
+
 where 7z >nul 2>nul
 if errorlevel 1 (
   echo 7z not found
