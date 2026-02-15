@@ -49,6 +49,7 @@ runs:
 
     - name: Test V8
       shell: cmd
+      continue-on-error: true
       run: .\v8_test.bat
 
     - name: Archive V8

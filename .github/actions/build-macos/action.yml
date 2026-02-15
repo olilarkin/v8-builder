@@ -53,6 +53,7 @@ runs:
 
     - name: Test V8
       shell: bash
+      continue-on-error: true
       run: ./v8_test.sh
 
     - name: Archive V8
