@@ -2,6 +2,11 @@ name: V8 Build Test
 
 on:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build (comma-separated: linux,macos,windows)'
+        required: false
+        default: 'linux,macos,windows'
 
 jobs:
   build-test:
@@ -9,6 +14,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        exclude:
+          - os: ${{ !contains(inputs.platforms || 'linux,macos,windows', 'linux') && 'ubuntu-latest' || 'skip' }}
+          - os: ${{ !contains(inputs.platforms || 'linux,macos,windows', 'macos') && 'macos-latest' || 'skip' }}
+          - os: ${{ !contains(inputs.platforms || 'linux,macos,windows', 'windows') && 'windows-latest' || 'skip' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
