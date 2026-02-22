@@ -16,21 +16,45 @@ fi
 platform="$(uname -s)"
 
 # Detect LLVM tools — V8 is built with Clang/LLD, so we must use LLVM tools
+# Try exact name, then versioned names (e.g. ld.lld-18), then V8's bundled copy
 detect_tool() {
   tool="$1"
   if command -v "$tool" >/dev/null 2>&1; then
     echo "$tool"
-  elif command -v xcrun >/dev/null 2>&1 && xcrun -f "$tool" >/dev/null 2>&1; then
+    return
+  fi
+  # Try versioned names (llvm packages on Ubuntu install as e.g. ld.lld-18)
+  for candidate in $(compgen -c "$tool-" 2>/dev/null | sort -t- -k2 -n -r); do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      echo "$candidate"
+      return
+    fi
+  done
+  # Try xcrun on macOS
+  if command -v xcrun >/dev/null 2>&1 && xcrun -f "$tool" >/dev/null 2>&1; then
     echo "xcrun $tool"
+    return
+  fi
+  echo ""
+}
+
+# V8's bundled LLVM toolchain
+v8_llvm_bin="$(cd "$(dirname "$0")" && pwd)/v8/third_party/llvm-build/Release+Asserts/bin"
+
+find_tool() {
+  tool="$1"
+  # Check V8's bundled LLVM first
+  if [ -x "$v8_llvm_bin/$tool" ]; then
+    echo "$v8_llvm_bin/$tool"
   else
-    echo ""
+    detect_tool "$tool"
   fi
 }
 
-LLD=$(detect_tool ld.lld)
-OBJCOPY=$(detect_tool llvm-objcopy)
-AR=$(detect_tool llvm-ar)
-NM=$(detect_tool llvm-nm)
+LLD=$(find_tool ld.lld)
+OBJCOPY=$(find_tool llvm-objcopy)
+AR=$(find_tool llvm-ar)
+NM=$(find_tool llvm-nm)
 
 if [ -z "$OBJCOPY" ]; then
   echo "Error: llvm-objcopy not found"
