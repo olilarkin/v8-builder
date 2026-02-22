@@ -24,6 +24,10 @@ runs:
       with:
         python-version: '3.12'
 
+    - name: Select Xcode 16.2
+      shell: bash
+      run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
     - name: Setup Build Tools
       shell: bash
       run: |
