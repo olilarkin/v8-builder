@@ -43,10 +43,10 @@ jobs:
                 include="$(echo "$include" | jq '. + [{"os":"macos-15-intel","platform":"macos-intel"}]')"
                 ;;
               windows)
-                include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows"}]')"
+                include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows","target_cpu":"x64"}]')"
                 ;;
               windows-arm)
-                include="$(echo "$include" | jq '. + [{"os":"windows-11-arm","platform":"windows-arm"}]')"
+                include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows-arm","target_cpu":"arm64"}]')"
                 ;;
               '')
                 ;;
@@ -70,6 +70,8 @@ jobs:
   build-test:
     name: Build V8
     needs: resolve-matrix
+    env:
+      TARGET_CPU: ${{ matrix.target_cpu }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.resolve-matrix.outputs.matrix) }}
@@ -132,6 +134,7 @@ jobs:
         uses: ./.github/actions/build-windows
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
+          target-cpu: ${{ matrix.target_cpu }}
 
       - name: Archive V8 Library
         uses: actions/upload-artifact@v4

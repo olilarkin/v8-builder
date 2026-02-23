@@ -7,6 +7,11 @@ inputs:
     default: v8_Windows
     required: false
     type: string
+  target-cpu:
+    description: 'Optional target CPU override (e.g. arm64)'
+    default: ''
+    required: false
+    type: string
   run-tests:
     description: 'Run sample smoke test'
     default: 'false'
@@ -59,6 +64,8 @@ runs:
 
     - name: Compile V8
       shell: cmd
+      env:
+        TARGET_CPU: ${{ inputs.target-cpu }}
       run: .\v8_compile.bat
 
     - name: Show SCCache Status

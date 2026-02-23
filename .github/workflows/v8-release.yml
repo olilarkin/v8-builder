@@ -11,8 +11,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-15-intel, windows-latest, windows-11-arm]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+          - os: macos-15-intel
+            platform: macos-intel
+          - os: windows-latest
+            platform: windows
+            target_cpu: x64
+          - os: windows-latest
+            platform: windows-arm
+            target_cpu: arm64
     runs-on: ${{ matrix.os }}
+    env:
+      TARGET_CPU: ${{ matrix.target_cpu }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -43,22 +57,23 @@ jobs:
         run: .\.github\workflows\scripts\archive-name.ps1
 
       - name: Build Release for Linux (${{ runner.arch }})
-        if: startsWith(matrix.os, 'ubuntu')
+        if: matrix.platform == 'linux'
         uses: ./.github/actions/build-linux
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
 
       - name: Build Release for macOS (${{ runner.arch }})
-        if: startsWith(matrix.os, 'macos')
+        if: startsWith(matrix.platform, 'macos')
         uses: ./.github/actions/build-macos
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
 
       - name: Build Release for Windows
-        if: startsWith(matrix.os, 'windows')
+        if: startsWith(matrix.platform, 'windows')
         uses: ./.github/actions/build-windows
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
+          target-cpu: ${{ matrix.target_cpu }}
 
       - name: Upload Archive
         uses: actions/upload-artifact@v4
