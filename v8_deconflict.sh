@@ -76,7 +76,24 @@ case "$platform" in
     $LLD -r -o "$tmpdir/v8_combined.o" --whole-archive "$lib_path"
     ;;
   Darwin)
-    ld -r -o "$tmpdir/v8_combined.o" -all_load "$lib_path"
+    darwin_arch=""
+    case "${RUNNER_ARCH:-$(uname -m)}" in
+      ARM64|arm64|aarch64)
+        darwin_arch="arm64"
+        ;;
+      X64|x64|x86_64|amd64)
+        darwin_arch="x86_64"
+        ;;
+      *)
+        echo "Unsupported macOS arch: ${RUNNER_ARCH:-$(uname -m)}"
+        exit 1
+        ;;
+    esac
+    if command -v xcrun >/dev/null 2>&1; then
+      xcrun ld -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -all_load "$lib_path"
+    else
+      ld -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -all_load "$lib_path"
+    fi
     ;;
   *)
     echo "Unsupported platform: $platform"
