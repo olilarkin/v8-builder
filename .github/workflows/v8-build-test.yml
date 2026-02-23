@@ -9,28 +9,70 @@ on:
         default: 'linux,macos,macos-intel,windows,windows-arm'
 
 jobs:
+  resolve-matrix:
+    name: Resolve Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    steps:
+      - name: Resolve Requested Platforms
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          default_platforms='linux,macos,macos-intel,windows,windows-arm'
+          requested='${{ inputs.platforms }}'
+
+          if [ -z "$requested" ]; then
+            requested="$default_platforms"
+          fi
+
+          requested="$(echo "$requested" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          include='[]'
+
+          for platform in ${requested//,/ }; do
+            case "$platform" in
+              linux)
+                include="$(echo "$include" | jq '. + [{"os":"ubuntu-latest","platform":"linux"}]')"
+                ;;
+              macos)
+                include="$(echo "$include" | jq '. + [{"os":"macos-latest","platform":"macos"}]')"
+                ;;
+              macos-intel)
+                include="$(echo "$include" | jq '. + [{"os":"macos-15-intel","platform":"macos-intel"}]')"
+                ;;
+              windows)
+                include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows"}]')"
+                ;;
+              windows-arm)
+                include="$(echo "$include" | jq '. + [{"os":"windows-11-arm","platform":"windows-arm"}]')"
+                ;;
+              '')
+                ;;
+              *)
+                echo "Unsupported platform: $platform"
+                exit 1
+                ;;
+            esac
+          done
+
+          include="$(echo "$include" | jq 'unique_by(.platform)')"
+
+          if [ "$(echo "$include" | jq 'length')" -eq 0 ]; then
+            echo 'No valid platforms were requested'
+            exit 1
+          fi
+
+          matrix="$(echo "$include" | jq -c '{include: .}')"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   build-test:
     name: Build V8
+    needs: resolve-matrix
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux
-          - os: macos-latest
-            platform: macos
-          - os: macos-15-intel
-            platform: macos-intel
-          - os: windows-latest
-            platform: windows
-          - os: windows-11-arm
-            platform: windows-arm
-        exclude:
-          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',linux,') && 'linux' || 'skip' }}
-          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',macos,') && 'macos' || 'skip' }}
-          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',macos-intel,') && 'macos-intel' || 'skip' }}
-          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',windows,') && 'windows' || 'skip' }}
-          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',windows-arm,') && 'windows-arm' || 'skip' }}
+      matrix: ${{ fromJson(needs.resolve-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
