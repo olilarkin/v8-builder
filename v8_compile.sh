@@ -48,6 +48,26 @@ gn_args="${gn_args} v8_target_cpu=\"$target_cpu\""
 
 cd "${dir}/v8"
 
+# macOS runner images can rotate Xcode/SDK paths. Cached out/release
+# then contains stale absolute dependencies that break ninja immediately.
+if [ "$os" = "macOS" ]; then
+  out_dir="./out/release"
+  toolchain_stamp="${out_dir}/.apple-toolchain"
+  xcode_path="$(xcode-select -p 2>/dev/null || true)"
+  sdk_path="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+  current_toolchain="${xcode_path}|${sdk_path}"
+  cached_toolchain=""
+
+  if [ -f "$toolchain_stamp" ]; then
+    cached_toolchain="$(cat "$toolchain_stamp" 2>/dev/null || true)"
+  fi
+
+  if [ -d "$out_dir" ] && [ "$cached_toolchain" != "$current_toolchain" ]; then
+    echo "Apple toolchain changed or unknown in cache; cleaning ${out_dir}"
+    rm -rf "$out_dir"
+  fi
+fi
+
 gn gen "./out/release" --args="$gn_args"
 
 echo "==================== Build args start ===================="
@@ -58,6 +78,10 @@ echo "==================== Build args end ===================="
   set -x
   ninja -C "./out/release" -j "$cores" v8_monolith
 )
+
+if [ "$os" = "macOS" ]; then
+  printf '%s\n' "$current_toolchain" > "./out/release/.apple-toolchain"
+fi
 
 ls -lh ./out/release/obj/libv8_*.a
 
