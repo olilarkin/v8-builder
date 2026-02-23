@@ -7,6 +7,11 @@ inputs:
     default: v8_Linux
     required: false
     type: string
+  run-tests:
+    description: 'Run sample smoke test'
+    default: 'false'
+    required: false
+    type: string
 
 runs:
   using: "composite"
@@ -51,8 +56,8 @@ runs:
       run: ccache -s
 
     - name: Test V8
+      if: ${{ inputs.run-tests == 'true' }}
       shell: bash
-      continue-on-error: true
       run: ./v8_test.sh
 
     - name: Archive Release

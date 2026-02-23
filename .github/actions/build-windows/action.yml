@@ -7,6 +7,11 @@ inputs:
     default: v8_Windows
     required: false
     type: string
+  run-tests:
+    description: 'Run sample smoke test'
+    default: 'false'
+    required: false
+    type: string
 
 runs:
   using: "composite"
@@ -48,8 +53,8 @@ runs:
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Test V8
+      if: ${{ inputs.run-tests == 'true' }}
       shell: cmd
-      continue-on-error: true
       run: .\v8_test.bat
 
     - name: Archive V8
