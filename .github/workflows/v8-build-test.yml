@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Platforms to build (comma-separated: linux,macos,macos-intel,windows)'
+        description: 'Platforms to build (comma-separated: linux,macos,macos-intel,windows,windows-arm)'
         required: false
-        default: 'linux,macos,macos-intel,windows'
+        default: 'linux,macos,macos-intel,windows,windows-arm'
 
 jobs:
   build-test:
     name: Build V8
-    if: ${{ contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows'), format(',{0},', matrix.platform)) }}
+    if: ${{ contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), format(',{0},', matrix.platform)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +24,8 @@ jobs:
             platform: macos-intel
           - os: windows-latest
             platform: windows
+          - os: windows-11-arm
+            platform: windows-arm
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
@@ -79,7 +81,7 @@ jobs:
           archive-name: ${{ env.ARCHIVE_NAME }}
 
       - name: Build V8 for Windows
-        if: matrix.platform == 'windows'
+        if: startsWith(matrix.platform, 'windows')
         uses: ./.github/actions/build-windows
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
