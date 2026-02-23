@@ -11,7 +11,6 @@ on:
 jobs:
   build-test:
     name: Build V8
-    if: ${{ contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), format(',{0},', matrix.platform)) }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +25,12 @@ jobs:
             platform: windows
           - os: windows-11-arm
             platform: windows-arm
+        exclude:
+          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',linux,') && 'linux' || 'skip' }}
+          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',macos,') && 'macos' || 'skip' }}
+          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',macos-intel,') && 'macos-intel' || 'skip' }}
+          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',windows,') && 'windows' || 'skip' }}
+          - platform: ${{ !contains(format(',{0},', inputs.platforms || 'linux,macos,macos-intel,windows,windows-arm'), ',windows-arm,') && 'windows-arm' || 'skip' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Code
