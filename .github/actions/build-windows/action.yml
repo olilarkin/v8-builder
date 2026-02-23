@@ -25,17 +25,33 @@ runs:
           ${{ runner.os }}-${{ runner.arch }}:libv8:sccache:
 
     - name: Setup Scoop
+      if: runner.arch != 'ARM64'
       uses: MinoruSekine/setup-scoop@v4
 
     - name: Setup Build Tools
       shell: pwsh
       run: |
-        scoop install sccache llvm
+        $ErrorActionPreference = 'Stop'
 
-        $sccacheDir = "$Env:GITHUB_WORKSPACE`\.sccache"
-        New-Item -Path "$sccacheDir" -ItemType Directory -Force
+        if ("${{ runner.arch }}" -ne "ARM64") {
+          scoop install sccache llvm
+        } else {
+          Write-Host 'Skipping Scoop package install on ARM64 runner'
+        }
 
-        Write-Output "SCCACHE_DIR=$sccacheDir" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8
+        if (Get-Command sccache -ErrorAction SilentlyContinue) {
+          $sccacheDir = "$Env:GITHUB_WORKSPACE`\.sccache"
+          New-Item -Path "$sccacheDir" -ItemType Directory -Force | Out-Null
+          Write-Output "SCCACHE_DIR=$sccacheDir" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8
+        } else {
+          Write-Host 'sccache not found; building without compiler cache'
+        }
+
+        if (Get-Command llvm-ar -ErrorAction SilentlyContinue) {
+          Write-Host 'llvm-ar found'
+        } else {
+          Write-Host 'llvm-ar not found; archive deconflict will use lib.exe fallback'
+        }
 
     - name: Download V8 Source
       shell: cmd
@@ -47,7 +63,12 @@ runs:
 
     - name: Show SCCache Status
       shell: pwsh
-      run: sccache --show-stats
+      run: |
+        if (Get-Command sccache -ErrorAction SilentlyContinue) {
+          sccache --show-stats
+        } else {
+          Write-Host 'sccache not installed; skipping stats'
+        }
 
     - name: Setup Developer Command Prompt
       uses: ilammy/msvc-dev-cmd@v1
