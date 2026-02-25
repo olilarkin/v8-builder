@@ -89,10 +89,15 @@ case "$platform" in
         exit 1
         ;;
     esac
-    if command -v xcrun >/dev/null 2>&1; then
-      xcrun ld -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -all_load "$lib_path"
+    # On modern Xcode, calling ld directly requires explicit -platform_version.
+    # Use the compiler driver so platform metadata is provided automatically.
+    if command -v xcrun >/dev/null 2>&1 && xcrun -f clang++ >/dev/null 2>&1; then
+      xcrun clang++ -nostdlib -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -Wl,-all_load "$lib_path"
+    elif command -v clang++ >/dev/null 2>&1; then
+      clang++ -nostdlib -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -Wl,-all_load "$lib_path"
     else
-      ld -arch "$darwin_arch" -r -o "$tmpdir/v8_combined.o" -all_load "$lib_path"
+      echo "Error: clang++ not found (required for macOS deconflict link)"
+      exit 1
     fi
     ;;
   *)
