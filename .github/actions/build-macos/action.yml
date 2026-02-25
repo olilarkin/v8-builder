@@ -7,6 +7,11 @@ inputs:
     default: v8_macOS
     required: false
     type: string
+  xcode-version:
+    description: 'Xcode version to use'
+    default: '26.0'
+    required: false
+    type: string
   run-tests:
     description: 'Run sample smoke test'
     default: 'false'
@@ -29,10 +34,14 @@ runs:
       with:
         python-version: '3.12'
 
-    - name: Select Xcode 16.2
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: ${{ inputs.xcode-version }}
+
+    - name: Show Xcode Version
       shell: bash
       run: |
-        sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
         xcodebuild -version
         xcrun --sdk macosx --show-sdk-path
 

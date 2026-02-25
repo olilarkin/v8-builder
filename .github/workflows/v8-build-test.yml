@@ -128,6 +128,7 @@ jobs:
         uses: ./.github/actions/build-macos
         with:
           archive-name: ${{ env.ARCHIVE_NAME }}
+          xcode-version: '26.0'
 
       - name: Build V8 for Windows
         if: startsWith(matrix.platform, 'windows')
