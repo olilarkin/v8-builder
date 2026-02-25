@@ -12,6 +12,7 @@ v8_use_external_startup_data=false
 symbol_level=0
 strip_debug_info=true
 treat_warnings_as_errors=false
+use_custom_libcxx=false
 
 # Work around missing DarwinFoundation*.modulemap paths on GitHub macOS SDK images.
 use_clang_modules=false
