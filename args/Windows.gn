@@ -1,6 +1,7 @@
 is_debug=false
 is_component_build=false
 v8_monolithic=true
+is_clang=false
 
 # v8_enable_webassembly=true
 v8_enable_i18n_support=false
@@ -12,3 +13,5 @@ v8_use_external_startup_data=false
 symbol_level=0
 strip_debug_info=true
 treat_warnings_as_errors=false
+use_custom_libcxx=false
+use_custom_libcxx_for_host=false
