@@ -46,6 +46,47 @@ gn_args="${gn_args}cc_wrapper=\"$cc_wrapper\""
 gn_args="${gn_args} target_cpu=\"$target_cpu\""
 gn_args="${gn_args} v8_target_cpu=\"$target_cpu\""
 
+append_system_clang_args() {
+  clang_cmd=""
+
+  if [ "$os" = "macOS" ] && command -v xcrun >/dev/null 2>&1; then
+    clang_cmd="$(xcrun -f clang++ 2>/dev/null || true)"
+  fi
+
+  if [ -z "$clang_cmd" ]; then
+    clang_cmd="$(command -v clang++ 2>/dev/null || true)"
+  fi
+
+  if [ -z "$clang_cmd" ]; then
+    echo "Error: clang++ not found in PATH (required to avoid Chromium clang)."
+    exit 1
+  fi
+
+  clang_resource_dir="$("$clang_cmd" -print-resource-dir 2>/dev/null | tr -d '\r' | head -n 1)"
+  if [ -z "$clang_resource_dir" ]; then
+    echo "Error: failed to detect clang resource dir from $clang_cmd."
+    exit 1
+  fi
+
+  clang_version="$(basename "$clang_resource_dir")"
+  clang_base_path="$(dirname "$(dirname "$(dirname "$clang_resource_dir")")")"
+
+  if [ ! -x "$clang_base_path/bin/clang++" ]; then
+    echo "Error: resolved clang base path is invalid: $clang_base_path"
+    exit 1
+  fi
+
+  echo "Using system clang: $clang_cmd"
+  echo "Detected clang resource dir: $clang_resource_dir"
+
+  gn_args="${gn_args} clang_base_path=\"$clang_base_path\""
+  gn_args="${gn_args} clang_version=\"$clang_version\""
+}
+
+if [ "$os" = "Linux" ] || [ "$os" = "macOS" ]; then
+  append_system_clang_args
+fi
+
 cd "${dir}/v8"
 
 # macOS runner images can rotate Xcode/SDK paths. Cached out/release

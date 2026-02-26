@@ -3,8 +3,9 @@ is_component_build=false
 v8_monolithic=true
 
 # Use system clang from Xcode instead of Chromium's bundled clang toolchain.
-clang_base_path="/usr"
+# clang_base_path and clang_version are injected by v8_compile.sh.
 clang_use_chrome_plugins=false
+use_lld=false
 
 # v8_enable_webassembly=true
 v8_enable_i18n_support=false

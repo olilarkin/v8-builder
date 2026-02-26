@@ -53,6 +53,23 @@ set "gnArgs=%gnArgs%cc_wrapper=""%ccWrapper%"""
 set "gnArgs=%gnArgs% target_cpu=""%targetCpu%"""
 set "gnArgs=%gnArgs% v8_target_cpu=""%targetCpu%"""
 
+set "clangResourceDir="
+for /F "delims=" %%i in ('clang-cl -print-resource-dir 2^>nul') do set "clangResourceDir=%%i"
+
+if not defined clangResourceDir (
+  echo Error: clang-cl not found in PATH ^(required to avoid Chromium clang^).
+  exit /b 1
+)
+
+for %%i in ("%clangResourceDir%") do set "clangVersion=%%~nxi"
+for %%i in ("%clangResourceDir%\..\..\..") do set "clangBasePath=%%~fi"
+set "clangBasePath=%clangBasePath:\=/%"
+
+echo Using system clang-cl resource dir: %clangResourceDir%
+echo Using system clang base path: %clangBasePath%
+
+set "gnArgs=%gnArgs% is_clang=true clang_base_path=""%clangBasePath%"" clang_version=""%clangVersion%"""
+
 pushd "%dir%\v8"
 
 call gn gen ".\out\release" --args="%gnArgs%"
