@@ -37,11 +37,16 @@ runs:
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
+        $targetCpu = "${{ inputs.target-cpu }}"
+        if ([string]::IsNullOrWhiteSpace($targetCpu)) {
+          $targetCpu = 'x64'
+        }
+        $targetCpu = $targetCpu.ToLowerInvariant()
 
-        if ("${{ runner.arch }}" -ne "ARM64") {
-          scoop install sccache llvm
+        if ($targetCpu -eq 'arm64') {
+          scoop install sccache llvm llvm-arm64
         } else {
-          Write-Host 'Skipping Scoop package install on ARM64 runner'
+          scoop install sccache llvm
         }
 
         if (Get-Command sccache -ErrorAction SilentlyContinue) {
@@ -142,6 +147,48 @@ runs:
           }
           if ($selected) {
             break
+          }
+        }
+
+        if (-not $selected -and $targetCpu -eq 'arm64') {
+          $armRuntimeRoot = Join-Path $Env:USERPROFILE 'scoop\apps\llvm-arm64\current\lib\clang'
+          if (Test-Path $armRuntimeRoot) {
+            $armRuntimeDirs = Get-ChildItem -Path $armRuntimeRoot -Directory -ErrorAction SilentlyContinue
+            foreach ($clangCl in $candidates) {
+              $resourceDir = (& $clangCl -print-resource-dir 2>$null | Out-String).Trim()
+              if (-not $resourceDir) {
+                continue
+              }
+
+              $destRuntimeDir = Join-Path $resourceDir 'lib\windows'
+              if (-not (Test-Path $destRuntimeDir)) {
+                continue
+              }
+
+              foreach ($armRuntimeDir in $armRuntimeDirs) {
+                foreach ($armBuiltinsName in @('clang_rt.builtins-aarch64.lib', 'clang_rt.builtins-arm64.lib')) {
+                  $srcBuiltins = Join-Path $armRuntimeDir.FullName ("lib\windows\" + $armBuiltinsName)
+                  if (-not (Test-Path $srcBuiltins)) {
+                    continue
+                  }
+
+                  $destBuiltins = Join-Path $destRuntimeDir 'clang_rt.builtins-aarch64.lib'
+                  Copy-Item -Path $srcBuiltins -Destination $destBuiltins -Force
+                  $selected = [PSCustomObject]@{
+                    ClangCl = $clangCl
+                    ResourceDir = $resourceDir
+                    Builtins = $destBuiltins
+                  }
+                  break
+                }
+                if ($selected) {
+                  break
+                }
+              }
+              if ($selected) {
+                break
+              }
+            }
           }
         }
 
