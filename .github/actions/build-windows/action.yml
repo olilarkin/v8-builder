@@ -70,12 +70,29 @@ runs:
         $targetCpu = $targetCpu.ToLowerInvariant()
 
         $requiredBuiltins = if ($targetCpu -eq 'arm64') {
+          @(
+            'clang_rt.builtins-aarch64.lib',
+            'clang_rt.builtins-arm64.lib'
+          )
+        } else {
+          @('clang_rt.builtins-x86_64.lib')
+        }
+        $canonicalBuiltins = if ($targetCpu -eq 'arm64') {
           'clang_rt.builtins-aarch64.lib'
         } else {
           'clang_rt.builtins-x86_64.lib'
         }
 
         $candidates = @()
+        $scoopLlvmClang = Join-Path $Env:USERPROFILE 'scoop\apps\llvm\current\bin\clang-cl.exe'
+        if (Test-Path $scoopLlvmClang) {
+          $candidates += $scoopLlvmClang
+        }
+        $scoopShimClang = Join-Path $Env:USERPROFILE 'scoop\shims\clang-cl.exe'
+        if (Test-Path $scoopShimClang) {
+          $candidates += $scoopShimClang
+        }
+
         $pathClang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
         if ($pathClang) {
           $candidates += $pathClang.Source
@@ -105,19 +122,32 @@ runs:
             continue
           }
 
-          $builtins = Join-Path $resourceDir ("lib\windows\" + $requiredBuiltins)
-          if (Test-Path $builtins) {
+          foreach ($builtinsName in $requiredBuiltins) {
+            $builtins = Join-Path $resourceDir ("lib\windows\" + $builtinsName)
+            if (-not (Test-Path $builtins)) {
+              continue
+            }
+
+            $canonicalBuiltinsPath = Join-Path $resourceDir ("lib\windows\" + $canonicalBuiltins)
+            if ($builtinsName -ne $canonicalBuiltins -and -not (Test-Path $canonicalBuiltinsPath)) {
+              Copy-Item -Path $builtins -Destination $canonicalBuiltinsPath -Force
+            }
+
             $selected = [PSCustomObject]@{
               ClangCl = $clangCl
               ResourceDir = $resourceDir
-              Builtins = $builtins
+              Builtins = $canonicalBuiltinsPath
             }
+            break
+          }
+          if ($selected) {
             break
           }
         }
 
         if (-not $selected) {
-          throw "No clang-cl candidate provides $requiredBuiltins for target_cpu=$targetCpu."
+          $requiredBuiltinsDisplay = $requiredBuiltins -join ', '
+          throw "No clang-cl candidate provides any of [$requiredBuiltinsDisplay] for target_cpu=$targetCpu."
         }
 
         $clangVersion = Split-Path $selected.ResourceDir -Leaf

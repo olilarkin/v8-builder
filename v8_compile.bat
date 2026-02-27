@@ -57,6 +57,8 @@ if defined clangBasePath (
     echo Error: V8_CLANG_BASE_PATH is set but V8_CLANG_VERSION is missing.
     exit /b 1
   )
+  set "clangBasePath=%clangBasePath:/=\%"
+  for %%i in ("%clangBasePath%") do set "clangBasePath=%%~sfi"
   set "clangBasePath=%clangBasePath:\=/%"
   set "clangResourceDir=%clangBasePath%/lib/clang/%clangVersion%"
 ) else (
@@ -69,6 +71,8 @@ if defined clangBasePath (
 
   for %%i in ("%clangResourceDir%") do set "clangVersion=%%~nxi"
   for %%i in ("%clangResourceDir%\..\..\..") do set "clangBasePath=%%~fi"
+  set "clangBasePath=%clangBasePath:/=\%"
+  for %%i in ("%clangBasePath%") do set "clangBasePath=%%~sfi"
   set "clangBasePath=%clangBasePath:\=/%"
 )
 
