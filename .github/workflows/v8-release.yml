@@ -21,9 +21,6 @@ jobs:
           - os: windows-latest
             platform: windows
             target_cpu: x64
-          - os: windows-latest
-            platform: windows-arm
-            target_cpu: arm64
     runs-on: ${{ matrix.os }}
     env:
       TARGET_CPU: ${{ matrix.target_cpu }}
