@@ -1,9 +1,9 @@
 is_debug=false
 is_component_build=false
 v8_monolithic=true
+is_clang=false
 
-# Use system clang instead of Chromium's bundled clang toolchain.
-# clang_base_path and clang_version are injected by v8_compile.sh.
+# Build Linux with GCC (no Chromium clang toolchain).
 clang_use_chrome_plugins=false
 
 # v8_enable_webassembly=true

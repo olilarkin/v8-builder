@@ -83,7 +83,14 @@ append_system_clang_args() {
   gn_args="${gn_args} clang_version=\"$clang_version\""
 }
 
-if [ "$os" = "Linux" ] || [ "$os" = "macOS" ]; then
+use_clang=true
+case "$gn_args" in
+  *"is_clang=false"*)
+    use_clang=false
+    ;;
+esac
+
+if [ "$use_clang" = "true" ] && ([ "$os" = "Linux" ] || [ "$os" = "macOS" ]); then
   append_system_clang_args
 fi
 

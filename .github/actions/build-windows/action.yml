@@ -58,6 +58,79 @@ runs:
           Write-Host 'llvm-ar not found; archive deconflict will use lib.exe fallback'
         }
 
+    - name: Select System Clang Toolchain
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $targetCpu = "${{ inputs.target-cpu }}"
+        if ([string]::IsNullOrWhiteSpace($targetCpu)) {
+          $targetCpu = 'x64'
+        }
+        $targetCpu = $targetCpu.ToLowerInvariant()
+
+        $requiredBuiltins = if ($targetCpu -eq 'arm64') {
+          'clang_rt.builtins-aarch64.lib'
+        } else {
+          'clang_rt.builtins-x86_64.lib'
+        }
+
+        $candidates = @()
+        $pathClang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
+        if ($pathClang) {
+          $candidates += $pathClang.Source
+        }
+
+        foreach ($edition in @('Enterprise', 'Professional', 'Community', 'BuildTools')) {
+          $candidate = "C:\Program Files\Microsoft Visual Studio\2022\$edition\VC\Tools\Llvm\x64\bin\clang-cl.exe"
+          if (Test-Path $candidate) {
+            $candidates += $candidate
+          }
+        }
+
+        $programFilesLlvm = 'C:\Program Files\LLVM\bin\clang-cl.exe'
+        if (Test-Path $programFilesLlvm) {
+          $candidates += $programFilesLlvm
+        }
+
+        $candidates = $candidates | Select-Object -Unique
+        if ($candidates.Count -eq 0) {
+          throw 'No clang-cl candidates found on runner.'
+        }
+
+        $selected = $null
+        foreach ($clangCl in $candidates) {
+          $resourceDir = (& $clangCl -print-resource-dir 2>$null | Out-String).Trim()
+          if (-not $resourceDir) {
+            continue
+          }
+
+          $builtins = Join-Path $resourceDir ("lib\windows\" + $requiredBuiltins)
+          if (Test-Path $builtins) {
+            $selected = [PSCustomObject]@{
+              ClangCl = $clangCl
+              ResourceDir = $resourceDir
+              Builtins = $builtins
+            }
+            break
+          }
+        }
+
+        if (-not $selected) {
+          throw "No clang-cl candidate provides $requiredBuiltins for target_cpu=$targetCpu."
+        }
+
+        $clangVersion = Split-Path $selected.ResourceDir -Leaf
+        $clangBasePath = (Resolve-Path (Join-Path $selected.ResourceDir '..\..\..')).Path
+        $clangBasePath = $clangBasePath -replace '\\', '/'
+
+        "V8_CLANG_BASE_PATH=$clangBasePath" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8 -Append
+        "V8_CLANG_VERSION=$clangVersion" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8 -Append
+
+        Write-Host "Using clang-cl: $($selected.ClangCl)"
+        Write-Host "Using clang resource dir: $($selected.ResourceDir)"
+        Write-Host "Validated builtins library: $($selected.Builtins)"
+
     - name: Download V8 Source
       shell: cmd
       run: .\v8_download.bat
