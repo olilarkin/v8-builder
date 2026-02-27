@@ -89,20 +89,6 @@ runs:
         }
 
         $candidates = @()
-        $scoopLlvmClang = Join-Path $Env:USERPROFILE 'scoop\apps\llvm\current\bin\clang-cl.exe'
-        if (Test-Path $scoopLlvmClang) {
-          $candidates += $scoopLlvmClang
-        }
-        $scoopShimClang = Join-Path $Env:USERPROFILE 'scoop\shims\clang-cl.exe'
-        if (Test-Path $scoopShimClang) {
-          $candidates += $scoopShimClang
-        }
-
-        $pathClang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
-        if ($pathClang) {
-          $candidates += $pathClang.Source
-        }
-
         foreach ($edition in @('Enterprise', 'Professional', 'Community', 'BuildTools')) {
           $candidate = "C:\Program Files\Microsoft Visual Studio\2022\$edition\VC\Tools\Llvm\x64\bin\clang-cl.exe"
           if (Test-Path $candidate) {
@@ -113,6 +99,20 @@ runs:
         $programFilesLlvm = 'C:\Program Files\LLVM\bin\clang-cl.exe'
         if (Test-Path $programFilesLlvm) {
           $candidates += $programFilesLlvm
+        }
+
+        $pathClang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
+        if ($pathClang) {
+          $candidates += $pathClang.Source
+        }
+
+        $scoopLlvmClang = Join-Path $Env:USERPROFILE 'scoop\apps\llvm\current\bin\clang-cl.exe'
+        if (Test-Path $scoopLlvmClang) {
+          $candidates += $scoopLlvmClang
+        }
+        $scoopShimClang = Join-Path $Env:USERPROFILE 'scoop\shims\clang-cl.exe'
+        if (Test-Path $scoopShimClang) {
+          $candidates += $scoopShimClang
         }
 
         $candidates = $candidates | Select-Object -Unique
