@@ -53,6 +53,233 @@ runs:
           Write-Host 'llvm-ar not found; archive deconflict will use lib.exe fallback'
         }
 
+    - name: Select System Clang Toolchain
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+
+        $targetCpu = "${{ inputs.target-cpu }}"
+        if ([string]::IsNullOrWhiteSpace($targetCpu)) {
+          $targetCpu = 'x64'
+        }
+        $targetCpu = $targetCpu.ToLowerInvariant()
+
+        switch ($targetCpu) {
+          'x64' {
+            $requiredBuiltins = @('clang_rt.builtins-x86_64.lib')
+            $canonicalBuiltins = 'clang_rt.builtins-x86_64.lib'
+          }
+          'x86' {
+            $requiredBuiltins = @(
+              'clang_rt.builtins-i386.lib',
+              'clang_rt.builtins-i686.lib'
+            )
+            $canonicalBuiltins = 'clang_rt.builtins-i386.lib'
+          }
+          'arm64' {
+            $requiredBuiltins = @(
+              'clang_rt.builtins-aarch64.lib',
+              'clang_rt.builtins-arm64.lib'
+            )
+            $canonicalBuiltins = 'clang_rt.builtins-aarch64.lib'
+          }
+          default {
+            throw "Unsupported target-cpu: $targetCpu"
+          }
+        }
+
+        function Get-BuiltinsInResourceDir([string]$resourceDir, [string[]]$names) {
+          foreach ($name in $names) {
+            $builtinsPath = Join-Path $resourceDir ("lib\windows\" + $name)
+            if (Test-Path $builtinsPath) {
+              return [PSCustomObject]@{
+                Name = $name
+                Path = $builtinsPath
+              }
+            }
+          }
+          return $null
+        }
+
+        $candidates = @()
+        foreach ($edition in @('Enterprise', 'Professional', 'Community', 'BuildTools')) {
+          foreach ($arch in @('x64', 'x86')) {
+            $candidate = "C:\Program Files\Microsoft Visual Studio\2022\$edition\VC\Tools\Llvm\$arch\bin\clang-cl.exe"
+            if (Test-Path $candidate) {
+              $candidates += $candidate
+            }
+          }
+        }
+
+        foreach ($programFilesLlvm in @('C:\Program Files\LLVM\bin\clang-cl.exe', 'C:\Program Files (x86)\LLVM\bin\clang-cl.exe')) {
+          if (Test-Path $programFilesLlvm) {
+            $candidates += $programFilesLlvm
+          }
+        }
+
+        $pathClang = Get-Command clang-cl.exe -ErrorAction SilentlyContinue
+        if ($pathClang) {
+          $candidates += $pathClang.Source
+        }
+
+        foreach ($scoopPath in @(
+          (Join-Path $Env:USERPROFILE 'scoop\apps\llvm\current\bin\clang-cl.exe'),
+          (Join-Path $Env:USERPROFILE 'scoop\shims\clang-cl.exe')
+        )) {
+          if (Test-Path $scoopPath) {
+            $candidates += $scoopPath
+          }
+        }
+
+        $candidates = $candidates | Select-Object -Unique
+        if ($candidates.Count -eq 0) {
+          throw 'No clang-cl candidates found on runner.'
+        }
+
+        $selected = $null
+        foreach ($clangCl in $candidates) {
+          $resourceDir = (& $clangCl -print-resource-dir 2>$null | Out-String).Trim()
+          if (-not $resourceDir) {
+            continue
+          }
+
+          $builtins = Get-BuiltinsInResourceDir -resourceDir $resourceDir -names $requiredBuiltins
+          if (-not $builtins) {
+            continue
+          }
+
+          $canonicalBuiltinsPath = Join-Path $resourceDir ("lib\windows\" + $canonicalBuiltins)
+          if ($builtins.Name -ne $canonicalBuiltins -and -not (Test-Path $canonicalBuiltinsPath)) {
+            Copy-Item -Path $builtins.Path -Destination $canonicalBuiltinsPath -Force
+          } else {
+            $canonicalBuiltinsPath = $builtins.Path
+          }
+
+          $selected = [PSCustomObject]@{
+            ClangCl = $clangCl
+            ResourceDir = $resourceDir
+            Builtins = $canonicalBuiltinsPath
+          }
+          break
+        }
+
+        if (-not $selected) {
+          $searchRoots = @()
+          foreach ($edition in @('Enterprise', 'Professional', 'Community', 'BuildTools')) {
+            $vsLlvmRoot = "C:\Program Files\Microsoft Visual Studio\2022\$edition\VC\Tools\Llvm"
+            if (Test-Path $vsLlvmRoot) {
+              $searchRoots += $vsLlvmRoot
+            }
+          }
+
+          foreach ($llvmRoot in @(
+            'C:\Program Files\LLVM\lib\clang',
+            'C:\Program Files (x86)\LLVM\lib\clang',
+            (Join-Path $Env:USERPROFILE 'scoop\apps\llvm\current\lib\clang')
+          )) {
+            if (Test-Path $llvmRoot) {
+              $searchRoots += $llvmRoot
+            }
+          }
+
+          $searchRoots = $searchRoots | Select-Object -Unique
+          $fallbackBuiltins = $null
+
+          foreach ($root in $searchRoots) {
+            foreach ($builtinsName in $requiredBuiltins) {
+              $match = Get-ChildItem -Path $root -Filter $builtinsName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($match) {
+                $fallbackBuiltins = [PSCustomObject]@{
+                  Name = $builtinsName
+                  Path = $match.FullName
+                }
+                break
+              }
+            }
+            if ($fallbackBuiltins) {
+              break
+            }
+          }
+
+          if ($fallbackBuiltins) {
+            foreach ($clangCl in $candidates) {
+              $resourceDir = (& $clangCl -print-resource-dir 2>$null | Out-String).Trim()
+              if (-not $resourceDir) {
+                continue
+              }
+
+              $destRuntimeDir = Join-Path $resourceDir 'lib\windows'
+              if (-not (Test-Path $destRuntimeDir)) {
+                continue
+              }
+
+              $canonicalBuiltinsPath = Join-Path $destRuntimeDir $canonicalBuiltins
+              Copy-Item -Path $fallbackBuiltins.Path -Destination $canonicalBuiltinsPath -Force
+              $selected = [PSCustomObject]@{
+                ClangCl = $clangCl
+                ResourceDir = $resourceDir
+                Builtins = $canonicalBuiltinsPath
+              }
+              Write-Host "Copied fallback builtins from $($fallbackBuiltins.Path) to $canonicalBuiltinsPath"
+              break
+            }
+          }
+        }
+
+        if (-not $selected) {
+          Write-Host "Unable to locate builtins for target_cpu=$targetCpu. Candidate diagnostics:"
+          foreach ($clangCl in $candidates) {
+            $resourceDir = (& $clangCl -print-resource-dir 2>$null | Out-String).Trim()
+            if (-not $resourceDir) {
+              continue
+            }
+
+            $runtimeDir = Join-Path $resourceDir 'lib\windows'
+            $available = @()
+            if (Test-Path $runtimeDir) {
+              $available = Get-ChildItem -Path $runtimeDir -Filter 'clang_rt.builtins-*.lib' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
+            }
+            Write-Host "  $clangCl => $resourceDir"
+            if ($available.Count -gt 0) {
+              Write-Host "    available: $($available -join ', ')"
+            } else {
+              Write-Host "    available: <none>"
+            }
+          }
+
+          $requiredBuiltinsDisplay = $requiredBuiltins -join ', '
+          throw "No clang-cl candidate provides any of [$requiredBuiltinsDisplay] for target_cpu=$targetCpu."
+        }
+
+        $clangVersion = Split-Path $selected.ResourceDir -Leaf
+        $clangBasePath = (Resolve-Path (Join-Path $selected.ResourceDir '..\..\..')).Path
+
+        $toolchainDir = Join-Path $Env:GITHUB_WORKSPACE '.toolchains'
+        New-Item -ItemType Directory -Path $toolchainDir -Force | Out-Null
+        $toolchainAlias = Join-Path $toolchainDir ("llvm-" + $targetCpu)
+
+        if (Test-Path $toolchainAlias) {
+          Remove-Item -Path $toolchainAlias -Recurse -Force
+        }
+
+        cmd /c "mklink /J `"$toolchainAlias`" `"$clangBasePath`"" | Out-Null
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $toolchainAlias)) {
+          $clangBasePathForGn = $toolchainAlias
+        } else {
+          Write-Host "Warning: failed to create no-space toolchain alias; using original path."
+          $clangBasePathForGn = $clangBasePath
+        }
+
+        $clangBasePathForGn = $clangBasePathForGn -replace '\\', '/'
+
+        "V8_CLANG_BASE_PATH=$clangBasePathForGn" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8 -Append
+        "V8_CLANG_VERSION=$clangVersion" | Out-File -FilePath "$Env:GITHUB_ENV" -Encoding utf8 -Append
+
+        Write-Host "Using clang-cl: $($selected.ClangCl)"
+        Write-Host "Using clang resource dir: $($selected.ResourceDir)"
+        Write-Host "Using clang base path: $clangBasePathForGn"
+        Write-Host "Validated builtins library: $($selected.Builtins)"
+
     - name: Download V8 Source
       shell: cmd
       run: .\v8_download.bat
