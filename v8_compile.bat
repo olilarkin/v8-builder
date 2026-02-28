@@ -65,7 +65,6 @@ if "%useClang%"=="1" (
       exit /b 1
     )
     set "clangBasePath=%clangBasePath:/=\%"
-    for %%i in ("%clangBasePath%") do set "clangBasePath=%%~sfi"
     set "clangBasePath=%clangBasePath:\=/%"
     set "clangResourceDir=%clangBasePath%/lib/clang/%clangVersion%"
   ) else (
@@ -79,8 +78,22 @@ if "%useClang%"=="1" (
     for %%i in ("%clangResourceDir%") do set "clangVersion=%%~nxi"
     for %%i in ("%clangResourceDir%\..\..\..") do set "clangBasePath=%%~fi"
     set "clangBasePath=%clangBasePath:/=\%"
-    for %%i in ("%clangBasePath%") do set "clangBasePath=%%~sfi"
     set "clangBasePath=%clangBasePath:\=/%"
+  )
+
+  if not defined clangBasePath (
+    echo Error: failed to resolve clang base path.
+    exit /b 1
+  )
+
+  if not defined clangVersion (
+    echo Error: failed to resolve clang version.
+    exit /b 1
+  )
+
+  if not defined clangResourceDir (
+    echo Error: failed to resolve clang resource dir.
+    exit /b 1
   )
 
   echo Using system clang-cl resource dir: %clangResourceDir%
