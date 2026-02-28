@@ -54,54 +54,58 @@ if not errorlevel 1 (
   set "useClang=0"
 )
 
-if "%useClang%"=="1" (
-  set "clangBasePath=%V8_CLANG_BASE_PATH%"
-  set "clangVersion=%V8_CLANG_VERSION%"
-  set "clangResourceDir="
+if "%useClang%"=="1" goto :configure_clang
 
-  if defined clangBasePath (
-    if not defined clangVersion (
-      echo Error: V8_CLANG_BASE_PATH is set but V8_CLANG_VERSION is missing.
-      exit /b 1
-    )
-    set "clangBasePath=%clangBasePath:/=\%"
-    set "clangBasePath=%clangBasePath:\=/%"
-    set "clangResourceDir=%clangBasePath%/lib/clang/%clangVersion%"
-  ) else (
-    for /F "delims=" %%i in ('clang-cl -print-resource-dir 2^>nul') do set "clangResourceDir=%%i"
+echo Using MSVC toolchain ^(is_clang=false^).
+goto :after_toolchain
 
-    if not defined clangResourceDir (
-      echo Error: clang-cl not found in PATH ^(required when is_clang=true^).
-      exit /b 1
-    )
+:configure_clang
+set "clangBasePath=%V8_CLANG_BASE_PATH%"
+set "clangVersion=%V8_CLANG_VERSION%"
+set "clangResourceDir="
 
-    for %%i in ("%clangResourceDir%") do set "clangVersion=%%~nxi"
-    for %%i in ("%clangResourceDir%\..\..\..") do set "clangBasePath=%%~fi"
-    set "clangBasePath=%clangBasePath:/=\%"
-    set "clangBasePath=%clangBasePath:\=/%"
-  )
-
-  if not defined clangBasePath (
-    echo Error: failed to resolve clang base path.
-    exit /b 1
-  )
-
+if defined clangBasePath (
   if not defined clangVersion (
-    echo Error: failed to resolve clang version.
+    echo Error: V8_CLANG_BASE_PATH is set but V8_CLANG_VERSION is missing.
     exit /b 1
   )
+  set "clangBasePath=%clangBasePath:/=\%"
+  set "clangBasePath=%clangBasePath:\=/%"
+  set "clangResourceDir=%clangBasePath%/lib/clang/%clangVersion%"
+) else (
+  for /F "delims=" %%i in ('clang-cl -print-resource-dir 2^>nul') do set "clangResourceDir=%%i"
 
   if not defined clangResourceDir (
-    echo Error: failed to resolve clang resource dir.
+    echo Error: clang-cl not found in PATH ^(required when is_clang=true^).
     exit /b 1
   )
 
-  echo Using system clang-cl resource dir: %clangResourceDir%
-  echo Using system clang base path: %clangBasePath%
-  set "gnArgs=%gnArgs% clang_base_path=""%clangBasePath%"" clang_version=""%clangVersion%"""
-) else (
-  echo Using MSVC toolchain ^(is_clang=false^).
+  for %%i in ("%clangResourceDir%") do set "clangVersion=%%~nxi"
+  for %%i in ("%clangResourceDir%\..\..\..") do set "clangBasePath=%%~fi"
+  set "clangBasePath=%clangBasePath:/=\%"
+  set "clangBasePath=%clangBasePath:\=/%"
 )
+
+if not defined clangBasePath (
+  echo Error: failed to resolve clang base path.
+  exit /b 1
+)
+
+if not defined clangVersion (
+  echo Error: failed to resolve clang version.
+  exit /b 1
+)
+
+if not defined clangResourceDir (
+  echo Error: failed to resolve clang resource dir.
+  exit /b 1
+)
+
+echo Using system clang-cl resource dir: %clangResourceDir%
+echo Using system clang base path: %clangBasePath%
+set "gnArgs=%gnArgs% clang_base_path=""%clangBasePath%"" clang_version=""%clangVersion%"""
+
+:after_toolchain
 
 pushd "%dir%\v8"
 
