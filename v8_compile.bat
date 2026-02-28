@@ -32,6 +32,9 @@ for /F "delims=" %%i in ('call "%dir%\scripts\get_arch.bat"') do (
 
 echo Building V8 for %os% %targetCpu%
 
+call :apply_backing_store_windows_patch "%v8Dir%\src\objects\backing-store.cc"
+if errorlevel 1 exit /b %errorlevel%
+
 setlocal EnableDelayedExpansion
 
 set "args="
@@ -131,3 +134,27 @@ dir ".\out\release\obj\v8_*.lib"
 popd
 
 endlocal
+exit /b 0
+
+:apply_backing_store_windows_patch
+setlocal
+set "sourcePath=%~1"
+
+if not exist "%sourcePath%" (
+  echo Warning: source patch target not found: %sourcePath%
+  endlocal & exit /b 0
+)
+
+findstr /C:"const std::function<bool()>& fn" "%sourcePath%" >nul
+if errorlevel 1 (
+  endlocal & exit /b 0
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = '%sourcePath%'; $old = 'const std::function<bool()>& fn'; $new = 'const auto& fn'; $content = [System.IO.File]::ReadAllText($p); if ($content.Contains($old)) { $updated = $content.Replace($old, $new); $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText($p, $updated, $utf8NoBom) }"
+if errorlevel 1 (
+  echo Error: failed to apply backing-store compatibility patch.
+  endlocal & exit /b 1
+)
+
+echo Applied backing-store compatibility patch for FunctionRef on Windows.
+endlocal & exit /b 0
