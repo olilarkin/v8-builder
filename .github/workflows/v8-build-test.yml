@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: 'Platforms to build (comma-separated: linux,macos,macos-intel,windows,windows-x86,windows-arm)'
+        description: 'Platforms to build (comma-separated: linux,macos,macos-intel,windows,windows-arm)'
         required: false
-        default: 'linux,macos,macos-intel,windows,windows-x86,windows-arm'
+        default: 'linux,macos,macos-intel,windows,windows-arm'
 
 jobs:
   resolve-matrix:
@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          default_platforms='linux,macos,macos-intel,windows,windows-x86,windows-arm'
+          default_platforms='linux,macos,macos-intel,windows,windows-arm'
           requested='${{ inputs.platforms }}'
 
           if [ -z "$requested" ]; then
@@ -44,9 +44,6 @@ jobs:
                 ;;
               windows)
                 include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows","target_cpu":"x64"}]')"
-                ;;
-              windows-x86)
-                include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows-x86","target_cpu":"x86"}]')"
                 ;;
               windows-arm)
                 include="$(echo "$include" | jq '. + [{"os":"windows-latest","platform":"windows-arm","target_cpu":"arm64"}]')"
